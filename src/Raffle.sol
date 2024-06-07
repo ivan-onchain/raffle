@@ -25,6 +25,8 @@ pragma solidity ^0.8.18;
 
 import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
+
 
 /**
  * @title A simple raffle contract
@@ -32,7 +34,7 @@ import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBa
  * @notice This contract is for creating a simple raffle
  * @dev
  */
-contract Raffle is VRFConsumerBaseV2 {
+contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
     error Raffle__NotEnoughEthSent();
     error Raffle__TransferFailed();
     error Raffle__RaffleNotOpen();
@@ -69,6 +71,8 @@ contract Raffle is VRFConsumerBaseV2 {
     /** Events */
     event EnteredRaffle(address indexed player);
     event PickedWinner(address indexed winner);
+    event RequestedRaffleWinner(uint256 indexed requestId);
+
 
     constructor(
         uint256 entranceFee,
@@ -119,7 +123,7 @@ contract Raffle is VRFConsumerBaseV2 {
         return (upkeepNeeded, "0x0");
     }
 
-    function performUpkeep(bytes calldata /* performData */) external {
+    function performUpkeep(bytes calldata /* performData */) external override { 
         (bool unkeepNeeded, ) = checkUpkeep("");
 
         if (!unkeepNeeded) {
@@ -131,13 +135,14 @@ contract Raffle is VRFConsumerBaseV2 {
         }
 
         s_raffleState = RaffleState.CALCULATING;
-        i_vrfCoordinator.requestRandomWords(
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             i_subscriptionId,
             REQUEST_CONFIRMATIONS,
             i_callbackGasLimit,
             NUMBER_WORDS
         );
+        emit RequestedRaffleWinner(requestId);
     }
 
     // CEI: checks, effects and interations
@@ -176,5 +181,13 @@ contract Raffle is VRFConsumerBaseV2 {
 
     function getPlayer(uint256 indexPlayer) external view returns (address) {
         return s_players[indexPlayer];
+    }
+
+    function getRecentWinner() external view returns (address) {
+        return s_recentWinner;
+    }
+
+    function getlastTimestamp() external view returns (uint256) {
+        return s_lastTimeStamp;
     }
 }
